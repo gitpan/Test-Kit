@@ -1,5 +1,9 @@
 Revision history for Test-Kit
 
-0.01    
-    - Basic functionality.  Compose tests and limited test features.
+0.02    15/08/2008
+        - Added Test::Differences as a build dependency.
+        - Added a version number to Test::Kit::Features.
+
+0.01    14/08/2008
+        - Basic functionality.  Compose tests and limited test features.
 

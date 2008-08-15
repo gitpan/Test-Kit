@@ -1,22 +1,25 @@
 ---
 name: Test-Kit
-version: 0.01
+version: 0.02
 author:
   - 'Curtis "Ovid" Poe <ovid@cpan.org>'
 abstract: Build custom test packages with only the features you want.
 license: perl
 resources:
   license: http://dev.perl.org/licenses/
-build_requires:
+requires:
   Test::More: 0
   base: 2.11
   namespace::clean: 0.08
+build_requires:
+  Test::Differences: ~
 provides:
   Test::Kit:
     file: lib/Test/Kit.pm
-    version: 0.01
+    version: 0.02
   Test::Kit::Features:
     file: lib/Test/Kit/Features.pm
+    version: 0.02
   Test::Kit::Result:
     file: lib/Test/Kit/Features.pm
 generated_by: Module::Build version 0.2808

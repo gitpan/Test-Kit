@@ -8,6 +8,14 @@ use Carp ();
 
 C<Test::Kit::Features> - Features available for C<Test::Kit>.
 
+=head1 VERSION
+
+Version 0.02
+
+=cut
+
+our $VERSION = '0.02';
+
 =head2 C<explain>
 
  use Test::Kit '+explain';

@@ -5,6 +5,7 @@ WriteMakefile
           'NAME' => 'Test::Kit',
           'VERSION_FROM' => 'lib/Test/Kit.pm',
           'PREREQ_PM' => {
+                           'Test::Differences' => undef,
                            'Test::More' => '0',
                            'base' => '2.11',
                            'namespace::clean' => '0.08'
