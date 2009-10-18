@@ -10,11 +10,12 @@ C<Test::Kit::Features> - Features available for C<Test::Kit>.
 
 =head1 VERSION
 
-Version 0.02
+Version 0.100
 
 =cut
 
-our $VERSION = '0.02';
+our $VERSION = '0.100';
+$VERSION = eval $VERSION;
 
 =head2 C<explain>
 

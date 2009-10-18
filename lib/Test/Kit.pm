@@ -13,11 +13,12 @@ Test::Kit - Build custom test packages with only the features you want.
 
 =head1 VERSION
 
-Version 0.02
+Version 0.100
 
 =cut
 
-our $VERSION = '0.02';
+our $VERSION = '0.100';
+$VERSION = eval $VERSION;
 
 =head1 SYNOPSIS
 
@@ -32,7 +33,7 @@ our $VERSION = '0.02';
 
 =head1 DESCRIPTION
 
-ALPH CODE!  You've been warned.
+Build custom test modules, using other test modules for parts.
 
 =over 4
 
@@ -65,7 +66,9 @@ Create a package for your tests and add the test modules you want.
      );
 
 Then in your test programs, all exported test functions from those modules
-will be available.  C<Test::More> functions are included by default.
+will be available.  C<Test::More> functions are included by default.  If you
+add 'Test::Most' to your C<Test::Kit> import list, it will take precedence
+over C<Test::More>.
 
     use My::Tests plan => 3;
 
@@ -95,10 +98,10 @@ Two common features are 'explain' and 'on_fail'.  To use a feature, just add a
 =head2 Advanced usage
 
 Sometimes two or more test modules may try to export a function with the same
-name.  This will cause a compile time failure listing all which modules export
-which conflicting function.  There are two ways of dealing with this:
-renaming and excluding.  To do this, add a hashref after the module name with
-keys 'exclude', 'rename', or both.
+name.  This will cause a compile time failure listing which modules export
+which conflicting function.  There are two ways of dealing with this: renaming
+and excluding.  To do this, add a hashref after the module name with keys
+'exclude', 'rename', or both.
 
     use Test::Most 
         'Test::Something' => {
@@ -118,11 +121,11 @@ keys 'exclude', 'rename', or both.
 my %FUNCTION;
 
 sub import {
-    my $class = shift;
-
+    my $class    = shift;
     my $callpack = caller(1);
 
     my $basic_functions = namespace::clean->get_functions($class);
+
     # not implementing features yet
     my ( $packages, $features ) = $class->_packages_and_features(@_);
     $class->_setup_import($features);
@@ -134,18 +137,14 @@ sub import {
             Carp::croak("Cannot require $package:  $error");
         }
 
-        $class->_register_new_functions( 
-            $callpack,
-            $basic_functions, 
-            $packages->{$package},
-            $package,
-            $internal_package,
-        );
+        $class->_register_new_functions( $callpack, $basic_functions,
+            $packages->{$package}, $package, $internal_package, );
     }
     $class->_validate_functions($callpack);
     $class->_export_to($callpack);
 
     {
+
         # Otherwise, "local $TODO" won't work for caller.
         no strict 'refs';
         our $TODO;
@@ -155,7 +154,7 @@ sub import {
 }
 
 sub _setup_import {
-    my ($class,$features) = @_;
+    my ( $class, $features ) = @_;
     my $callpack = caller(1);              # this is the composed test package
     my $import   = "$callpack\::import";
     my $isa      = "$callpack\::ISA";
@@ -166,16 +165,16 @@ sub _setup_import {
     else {
         unshift @$isa => 'Test::Kit::Features';
         *$import = sub {
-            my ($class,@args) = @_;
+            my ( $class, @args ) = @_;
             @args = $class->BUILD(@args) if $class->can('BUILD');
-            @args = $class->_setup_features($features, @args);
+            @args = $class->_setup_features( $features, @args );
             @_ = ( $class, @args );
             goto &Test::Builder::Module::import;
         };
     }
 }
 
-sub _reset {   # internal testing hook
+sub _reset {    # internal testing hook
     %FUNCTION = ();
 }
 
@@ -187,10 +186,10 @@ sub _validate_functions {
         if ( @source > 1 ) {
             my $sources = join ', ' => sort @source;
             push @errors =>
-                "Function &$function exported from more than one package:  $sources";
+"Function &$function exported from more than one package:  $sources";
         }
     }
-    Carp::croak(join "\n" => @errors) if @errors;
+    Carp::croak( join "\n" => @errors ) if @errors;
 }
 
 # XXX ouch.  This is really getting crufty
@@ -239,7 +238,11 @@ sub _packages_and_features {
         my $definition = 'HASH' eq ref $requests[0] ? shift @requests : {};
         $packages{$package} = $definition;
     }
-    $packages{'Test::More'} ||= {};
+
+    # Don't include Test::More because Test::Most will automatically provide
+    # these features
+    $packages{'Test::More'} ||= {}
+      unless exists $packages{'Test::Most'};
     return ( \%packages, \@features );
 }
 
@@ -266,19 +269,17 @@ Curtis "Ovid" Poe, C<< <ovid at cpan.org> >>
 
 =head1 BUGS
 
-Please report any bugs or feature requests to C<bug-test-kit at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Test-Kit>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
-
-
-
+Please report any bugs or feature requests to C<bug-test-kit at rt.cpan.org>,
+or through the web interface at
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Test-Kit>.  I will be
+notified, and then you'll automatically be notified of progress on your bug as
+I make changes.
 
 =head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
     perldoc Test::Kit
-
 
 You can also look for information at:
 
@@ -302,9 +303,7 @@ L<http://search.cpan.org/dist/Test-Kit>
 
 =back
 
-
 =head1 ACKNOWLEDGEMENTS
-
 
 =head1 COPYRIGHT & LICENSE
 
@@ -312,7 +311,6 @@ Copyright 2008 Curtis "Ovid" Poe, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
-
 
 =cut
 
