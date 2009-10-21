@@ -7,10 +7,11 @@ my $builder = Module::Build->new(
     license           => 'perl',
     dist_author       => 'Curtis "Ovid" Poe <ovid@cpan.org>',
     dist_version_from => 'lib/Test/Kit.pm',
-    build_requires    => { 
+    build_requires    => {
         'Test::Differences' => 0.48,
+        'Test::Most'        => 0.21,
     },
-    requires          => {
+    requires => {
         'Test::More'       => 0,
         'base'             => 2.11,
         'namespace::clean' => 0.08,

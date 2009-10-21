@@ -1,5 +1,9 @@
 Revision history for Test-Kit
 
+0.101   21/10/2009
+        - List Test::Most as a dependency.  Reported by Andreas Koenig at
+          https://rt.cpan.org/Ticket/Display.html?id=50688
+
 0.100   18/10/2009
         - Production release.
         - Pod patches from Gabrielle Roth

@@ -7,6 +7,7 @@ WriteMakefile
           'PREREQ_PM' => {
                            'Test::Differences' => '0.48',
                            'Test::More' => 0,
+                           'Test::Most' => '0.21',
                            'base' => '2.11',
                            'namespace::clean' => '0.08'
                          },

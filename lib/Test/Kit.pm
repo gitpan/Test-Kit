@@ -17,7 +17,7 @@ Version 0.100
 
 =cut
 
-our $VERSION = '0.100';
+our $VERSION = '0.101';
 $VERSION = eval $VERSION;
 
 =head1 SYNOPSIS
