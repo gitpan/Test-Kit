@@ -1,317 +1,395 @@
 package Test::Kit;
-
-use warnings;
+$Test::Kit::VERSION = '2.00';
 use strict;
-use Carp ();
-use namespace::clean;
+use warnings;
 
-use Test::Kit::Features;
+use namespace::clean ();
+use Import::Into;
+use Module::Runtime 'use_module';
+use Sub::Delete;
+
+use parent 'Exporter';
+our @EXPORT = ('include');
+
+# deep structure:
+#
+# my %collision_check_cache = (
+#     'MyTest::Awesome' => {
+#         'ok' => 'Test::More',
+#         'pass' => 'Test::More',
+#         'warnings_are' => 'Test::Warn',
+#         ...
+#     },
+#     ...
+# )
+#
+my %collision_check_cache;
+
+sub include {
+    my @to_include = @_;
+
+    my $class = __PACKAGE__;
+
+    my $include_hashref;
+    if (grep { ref($_) } @to_include) {
+        $include_hashref = { @to_include };
+    }
+    else {
+        $include_hashref = { map { $_ => {} } @to_include };
+    }
+
+    return $class->_include($include_hashref);
+}
+
+sub _include {
+    my $class = shift;
+    my $include_hashref = shift;
+
+    my $target = $class->_get_package_to_import_into();
+
+    $class->_check_target_does_not_import($target);
+
+    for my $package (sort keys %$include_hashref) {
+        my $fake_package = $class->_create_fake_package($package, $include_hashref->{$package});
+        $fake_package->import::into($target);
+    }
+
+    $class->_make_target_an_exporter($target);
+
+    return;
+}
+
+sub _get_package_to_import_into {
+    my $class = shift;
+
+    # so, as far as I can tell, on Perl 5.14 and 5.16 at least, we have the
+    # following callstack...
+    #
+    # 1. Test::Kit
+    # 2. MyTest
+    # 3. main
+    # 4. main
+    # 5. main
+    #
+    # ... and we want to get the package name "MyTest" out of there.
+    # So let's look for the first non-Test::Kit result
+
+    for my $i (1 .. 20) {
+        my $caller_package = (caller($i))[0];
+        if ($caller_package ne $class) {
+            return $caller_package;
+        }
+    }
+
+    die "Unable to find package to import into";
+}
+
+sub _create_fake_package {
+    my $class = shift;
+    my $package = shift;
+    my $package_include_hashref = shift;
+
+    my $target = $class->_get_package_to_import_into();
+
+    my $fake_package = "Test::Kit::Fake::$target\::$package";
+
+    my %exclude = map { $_ => 1 } @{ $package_include_hashref->{exclude} || [] };
+    my %rename = %{ $package_include_hashref->{rename} || {} };
+    my @import = @{ $package_include_hashref->{import} || [] };
+
+    use_module($package)->import::into($fake_package, @import);
+    my $functions_exported_by_package = namespace::clean->get_functions($fake_package);
+
+    my @functions_to_install = (
+        (grep { !$exclude{$_} && !$rename{$_} } sort keys %$functions_exported_by_package),
+        (values %rename)
+    );
+
+    my @non_functions_to_install = $class->_get_non_functions_from_package($package);
+
+    $class->_check_collisions(
+        $package,
+        [
+            @functions_to_install,
+            @non_functions_to_install,
+        ]
+    );
+
+    {
+        no strict 'refs';
+        no warnings 'redefine';
+
+        push @{ "$fake_package\::ISA" }, 'Exporter';
+        @{ "$fake_package\::EXPORT" } = (
+            @functions_to_install,
+            @non_functions_to_install
+        );
+
+        for my $from (sort keys %rename) {
+            my $to = $rename{$from};
+
+            *{ "$fake_package\::$to" } = \&{ "$fake_package\::$from" };
+
+            delete_sub("$fake_package\::$from");
+        }
+    }
+
+    return $fake_package;
+}
+
+sub _check_collisions {
+    my $class = shift;
+    my $package = shift;
+    my $functions_to_install = shift;
+
+    my $target = $class->_get_package_to_import_into();
+
+    for my $function (@$functions_to_install) {
+        if (exists $collision_check_cache{$target}{$function} && $collision_check_cache{$target}{$function} ne $package) {
+            die sprintf("Subroutine %s() already supplied to %s by %s",
+                $function,
+                $target,
+                $collision_check_cache{$target}{$function},
+            );
+        }
+        else {
+            $collision_check_cache{$target}{$function} = $package;
+        }
+    }
+
+    return;
+}
+
+sub _check_target_does_not_import {
+    my $class = shift;
+    my $target = shift;
+
+    return if $collision_check_cache{$target}; # already checked
+
+    if ($target->can('import')) {
+        die "Package $target already has an import() sub";
+    }
+
+    return;
+}
+
+sub _make_target_an_exporter {
+    my $class = shift;
+    my $target = shift;
+
+    my @functions_to_install = sort keys %{ $collision_check_cache{$target} // {} };
+
+    {
+        no strict 'refs';
+        push @{ "$target\::ISA" }, 'Test::Builder::Module';
+        @{ "$target\::EXPORT" } = @functions_to_install;
+    }
+
+    return;
+}
+
+sub _get_non_functions_from_package {
+    my $class = shift;
+    my $package = shift;
+
+    # Unfortunately we can't do the "correct" thing here, which would be to
+    # walk the symbol table of the fake package to find the non-sub variables
+    # exported by the included package.
+    #
+    # This is because the most common case we're trying to handle is the
+    # '$TODO' variable from Test::More, but it's impossible to catch that in
+    # the fake package symbol table because every symbol table entry has a
+    # scalar no matter what. ie the following two packages are indistinguishable:
+    #
+    # 1.
+    #     package foo;
+    #     our $x = undef;
+    #     our @x = qw(a b c);
+    #
+    # 2.
+    #     package foo;
+    #     our @x = qw(a b c);
+    #
+    # One option would be to import '$VAR' if VAR is in the symbol table and
+    # has no CODE, ARRAY, or HASH entry. But that breaks down if a package is
+    # trying to export both '$VAR' and '@VAR'.
+    #
+    # So, instead of all that I'm going to simply assume that the package is an
+    # Exporter and walk its @EXPORT array for things which start with '$', '@'
+    # or '%'. This at least will work for the $Test::More::TODO case.
+    #
+
+    my @non_functions;
+
+    my @package_export;
+    {
+        no strict 'refs';
+        @package_export = @{ "$package\::EXPORT" };
+    }
+
+    for my $e (@package_export) {
+        if ($e =~ m/^[\$\@\%]/) {
+            push @non_functions, $e;
+        }
+    }
+
+    return @non_functions;
+}
+
+1;
+
+__END__
 
 =head1 NAME
 
-Test::Kit - Build custom test packages with only the features you want.
-
-=head1 VERSION
-
-Version 0.100
-
-=cut
-
-our $VERSION = '0.101';
-$VERSION = eval $VERSION;
-
-=head1 SYNOPSIS
-
-    package My::Custom::Tests;
-
-    use Test::Kit
-        'Test::More',
-        'Test::XML',
-        'Test::Differences',
-        '+explain',
-    );
+Test::Kit - Build custom test packages with only the features you want
 
 =head1 DESCRIPTION
 
-Build custom test modules, using other test modules for parts.
+Test::Kit allows you to create a single module in your project which gives you
+access to all of the testing functions you want.
 
-=over 4
+Its primary goal is to reduce boilerplate code that is currently littering the
+top of all your test files.
 
-=item * C<kit>:
+It also allows your testing to be more consistent; for example it becomes a
+trivial change to include Test::FailWarnings in all of your tests, and there is
+no danger that you forget to include it in a new test.
 
-    A set of materials or parts from which something can be assembled.
+=head1 VERSION
 
-=back
+Test::Kit 2.0 is a complete rewrite of Test::Kit by a new author.
 
-How many times have you opened up a test program in a large test suite and
-seen 5 or 6 C<use Test::...> lines?  And then you open up a bunch of other
-test programs and they all have the same 5 or 6 lines.  That's duplication you
-don't want.  C<Test::Kit> allows you to I<safely> push that code into one
-custom test package and merely use that package.  It does this by treating
-various test module's functions as pieces you can assemble together.
+It serves much the same purpose as the original Test::Kit, but comes with a
+completely new interface and some serious bugs ironed out.
 
-Also, you can import 'features' to extend your testing possibilities.
+The 'features' such as '+explain' and '+on_fail' have been removed. If you were
+using these please contact me via rt.cpan.org.
 
-=head1 USAGE
+=head1 SYNOPSIS
 
-=head2 Basic
+Somewhere in your project...
 
-Create a package for your tests and add the test modules you want.
+    package MyProject::Test;
 
-     package My::Tests;
+    use Test::Kit;
 
-     use Test::Kit qw(
-         Test::Differences
-         Test::Exception
-     );
+    # Combine multiple modules' behaviour into one
 
-Then in your test programs, all exported test functions from those modules
-will be available.  C<Test::More> functions are included by default.  If you
-add 'Test::Most' to your C<Test::Kit> import list, it will take precedence
-over C<Test::More>.
+    include 'Test::More';
+    include 'Test::LongString';
 
-    use My::Tests plan => 3;
+    # Exclude or rename exported subs
 
-    is 3, 3, 'this if from Test::More';
-    eq_or_diff [ 3, 3 ], [ 3, 3 ], 'this is from Test::Differences';
-    throws_ok { die 'test message' }
-        qr/^test message/,
-        '... and this is from Test::Exception';
-
-=head2 Using "Features"
-
-Additional features, as detailed in L<Test::Kit::Features>, are available.
-Two common features are 'explain' and 'on_fail'.  To use a feature, just add a
-'+' (plus) before the feature name:
-
-     package My::Tests;
-
-     use Test::Kit qw(
-         Test::Differences
-         Test::Exception
-         Test::XML
-         Test::JSON
-         +explain
-         +on_fail
-     );
-
-=head2 Advanced usage
-
-Sometimes two or more test modules may try to export a function with the same
-name.  This will cause a compile time failure listing which modules export
-which conflicting function.  There are two ways of dealing with this: renaming
-and excluding.  To do this, add a hashref after the module name with keys
-'exclude', 'rename', or both.
-
-    use Test::Most 
-        'Test::Something' => {
-            # or a scalar for just one
-            exclude => [qw/ list of excluded functions/],
+    include 'Test::Warn' => {
+        exclude => [ 'warning_is' ],
+        renamed => {
+            'warning_like' => 'test_warn_warning_like'
         },
-        'Test::Something::Else' => {
-            # takes a hashref
-            rename => {
-                old_test_function_name => 'new_test_function_name',
-            },
-        },
-        '+explain';
+    };
 
-=cut
+    # Pass parameters through to import() directly
 
-my %FUNCTION;
+    include 'List::Util' => {
+        import => [ 'min', 'max', 'shuffle' ],
+    };
 
-sub import {
-    my $class    = shift;
-    my $callpack = caller(1);
+And then in your test files...
 
-    my $basic_functions = namespace::clean->get_functions($class);
+    use strict;
+    use warnings;
 
-    # not implementing features yet
-    my ( $packages, $features ) = $class->_packages_and_features(@_);
-    $class->_setup_import($features);
+    use MyProject::Test tests => 4;
 
-    foreach my $package ( keys %$packages ) {
-        my $internal_package = "Test::Kit::_INTERNAL_::$package";
-        eval "package $internal_package; use $package;";
-        if ( my $error = $@ ) {
-            Carp::croak("Cannot require $package:  $error");
-        }
+    ok 1, "1 is true";
 
-        $class->_register_new_functions( $callpack, $basic_functions,
-            $packages->{$package}, $package, $internal_package, );
+    like_string(
+        `cat /usr/share/dict/words`,
+        qr/^ kit $/imsx,
+        "kit is a word"
+    );
+
+    test_warn_warning_like {
+        warn "foo";
     }
-    $class->_validate_functions($callpack);
-    $class->_export_to($callpack);
+    qr/FOO/i,
+    "warned foo";
 
-    {
+    is max(qw(1 2 3 4 5)), 5, 'maximum is 5';
 
-        # Otherwise, "local $TODO" won't work for caller.
-        no strict 'refs';
-        our $TODO;
-        *{"$callpack\::TODO"} = \$TODO;
-    }
-    return 1;
-}
+=head1 EXCEPTIONS
 
-sub _setup_import {
-    my ( $class, $features ) = @_;
-    my $callpack = caller(1);              # this is the composed test package
-    my $import   = "$callpack\::import";
-    my $isa      = "$callpack\::ISA";
-    no strict 'refs';
-    if ( defined &$import ) {
-        Carp::croak("Class $callpack must not define an &import method");
-    }
-    else {
-        unshift @$isa => 'Test::Kit::Features';
-        *$import = sub {
-            my ( $class, @args ) = @_;
-            @args = $class->BUILD(@args) if $class->can('BUILD');
-            @args = $class->_setup_features( $features, @args );
-            @_ = ( $class, @args );
-            goto &Test::Builder::Module::import;
-        };
-    }
-}
+=head2 Unable to find package to import into
 
-sub _reset {    # internal testing hook
-    %FUNCTION = ();
-}
+This means that Test::Kit was unable to determine which module include() was
+called from. It probably means you're doing something weird!
 
-sub _validate_functions {
-    my ( $class, $callpack ) = @_;
-    my @errors;
-    while ( my ( $function, $definition ) = each %{ $FUNCTION{$callpack} } ) {
-        my @source = @{ $definition->{source} };
-        if ( @source > 1 ) {
-            my $sources = join ', ' => sort @source;
-            push @errors =>
-"Function &$function exported from more than one package:  $sources";
-        }
-    }
-    Carp::croak( join "\n" => @errors ) if @errors;
-}
+If this is happening under any normal circumstances please file a bug report!
 
-# XXX ouch.  This is really getting crufty
-sub _register_new_functions {
-    my ( $class, $callpack, $basic_functions, $definition, $source, $package ) =
-      @_;
-    my $new_functions = namespace::clean->get_functions($package);
-    $new_functions =
-      $class->_remove_basic_functions( $basic_functions, $new_functions, );
+=head2 Subroutine %s() already supplied to %s by %s
 
-    my $exclude = delete $definition->{exclude};
-    $exclude = [$exclude] unless 'ARRAY' eq ref $exclude;
+This happens when there is a subroutine name collision. For example if you try
+to include both Test::Simple and Test::More in your Kit it will complain that
+ok() has been defined twice.
 
-    my $rename = delete $definition->{rename} || {};
+You should be able to use the exclude or rename options to solve these
+collisions.
 
-    if ( my @keys = keys %$definition ) {
-        my $keys = join ', ' => sort @keys;
-        Carp::croak("Uknown keys in module definition: $keys");
-    }
+=head2 Package %s already has an import() sub
 
-    # turn it into a hash lookup
-    no warnings 'uninitialized';
-    $exclude = { map { $_ => 1 } @$exclude };
-    foreach my $function ( keys %$new_functions ) {
-        next if $exclude->{$function};
-        my $glob = $new_functions->{$function};
-        if ( my $new_name = $rename->{$function} ) {
-            $function = $new_name;
-        }
-        $FUNCTION{$callpack}{$function}{glob} = $glob;
-        $FUNCTION{$callpack}{$function}{source} ||= [];
-        push @{ $FUNCTION{$callpack}{$function}{source} } => $source;
-    }
-}
+This happens when your module has an import subroutine before the first
+include() call. This could be because you have defined one, or because your
+module has inherited an import() subroutine through an ISA relationship.
 
-sub _packages_and_features {
-    my ( $class, @requests ) = @_;
-    my ( %packages, @features );
-    while ( my $package = shift @requests ) {
-        if ( $package =~ s/\A\+// ) {
+Test::Kit intends to install its own import method into your module,
+specifically it is going to install Test::Builder::Module's import() method.
+Test::Builder::Module is an Exporter, so if you want to define your own
+subroutines and export those you can push onto @EXPORT after all the calls to
+include().
 
-            # it's a feature, not a package
-            push @features => $package;
-            next;
-        }
-        my $definition = 'HASH' eq ref $requests[0] ? shift @requests : {};
-        $packages{$package} = $definition;
-    }
+=head1 ISSUES
 
-    # Don't include Test::More because Test::Most will automatically provide
-    # these features
-    $packages{'Test::More'} ||= {}
-      unless exists $packages{'Test::Most'};
-    return ( \%packages, \@features );
-}
+=head2 Non-subroutine Exports
 
-sub _remove_basic_functions {
-    my ( $class, $basic, $new ) = @_;
-    delete @{$new}{ keys %$basic };
-    return $new;
-}
+For subroutine exports we are able to know exactly what subroutines are
+exported by using a given module using a combination of Import::Into and
+namespace::clean. Unfortunately the same trick does not work for exported
+SCALARs.
 
-sub _export_to {
-    my ( $class, $target ) = @_;
+This is because the most common case we're trying to handle is the '$TODO'
+variable from Test::More, but it's impossible to catch that in the symbol table
+because every symbol table entry has a scalar no matter what. ie the following
+two packages are indistinguishable:
 
-    while ( my ( $function, $definition ) = each %{ $FUNCTION{$target} } ) {
-        my $target_function = "$target\::$function";
-        no strict 'refs';
-        *$target_function = $definition->{glob};
-    }
-    return 1;
-}
+    # One
+    package foo;
+    our $x = undef;
+    our @x = qw(a b c);
+
+    # Two
+    package foo;
+    our @x = qw(a b c);
+
+So, instead, Test::Kit simply assumes that the package is an Exporter and walks
+its @EXPORT array for things which start with '$', '@' or '%'.
+
+This at least works for the $Test::More::TODO case, which is the most common.
+
+=head1 SEE ALSO
+
+A couple of other modules try to generalize this problem beyond the scope of testing:
+
+L<ToolSet> - Load your commonly-used modules in a single import
+
+L<Import::Base> - Import a set of modules into the calling module
+
+Test::Kit largely differs from these in that it always makes your module a
+Test::Builder::Module, so that it can behave like Test::More.
 
 =head1 AUTHOR
 
-Curtis "Ovid" Poe, C<< <ovid at cpan.org> >>
+Test::Kit 2.0 was written by Alex Balhatchet, C<< <kaoru at slackwise.net> >>
 
-=head1 BUGS
-
-Please report any bugs or feature requests to C<bug-test-kit at rt.cpan.org>,
-or through the web interface at
-L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Test-Kit>.  I will be
-notified, and then you'll automatically be notified of progress on your bug as
-I make changes.
-
-=head1 SUPPORT
-
-You can find documentation for this module with the perldoc command.
-
-    perldoc Test::Kit
-
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Test-Kit>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Test-Kit>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Test-Kit>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/Test-Kit>
-
-=back
-
-=head1 ACKNOWLEDGEMENTS
-
-=head1 COPYRIGHT & LICENSE
-
-Copyright 2008 Curtis "Ovid" Poe, all rights reserved.
-
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+Test::Kit 0.101 and before were authored by Curtis "Ovid" Poe, C<< <ovid at cpan.org> >>
 
 =cut
-
-1;    # End of Test::Kit

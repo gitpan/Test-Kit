@@ -1,0 +1,60 @@
+{
+   "abstract" : "Build custom test packages with only the features you want",
+   "author" : [
+      "Alex Balhatchet <kaoru@slackwise.net>"
+   ],
+   "dynamic_config" : 0,
+   "generated_by" : "Dist::Zilla version 5.016, CPAN::Meta::Converter version 2.140640",
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Test-Kit",
+   "prereqs" : {
+      "configure" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "6.30"
+         }
+      },
+      "develop" : {
+         "requires" : {
+            "Test::CPAN::Changes" : "0.19",
+            "Test::Pod" : "1.41"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Exporter" : "0",
+            "Import::Into" : "0",
+            "Module::Runtime" : "0",
+            "Storable" : "0",
+            "Sub::Delete" : "0",
+            "namespace::clean" : "0"
+         }
+      },
+      "test" : {
+         "requires" : {
+            "Test::Aggregate" : "0",
+            "Test::Aggregate::Nested" : "0",
+            "Test::Exception" : "0",
+            "Test::More" : "0.92",
+            "Test::NoWarnings" : "0",
+            "Test::Output" : "0",
+            "Test::Warn" : "0"
+         }
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "repository" : {
+         "type" : "git",
+         "url" : "git://github.com/kaoru/Test-Kit2.git",
+         "web" : "http://github.com/kaoru/Test-Kit2"
+      }
+   },
+   "version" : "2.00"
+}
+
