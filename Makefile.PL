@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-
+use 5.010;
 
 use ExtUtils::MakeMaker 6.30;
 
@@ -35,9 +35,10 @@ my %WriteMakefileArgs = (
     "Test::More" => "0.92",
     "Test::NoWarnings" => 0,
     "Test::Output" => 0,
+    "Test::Pod" => 0,
     "Test::Warn" => 0
   },
-  "VERSION" => "2.00",
+  "VERSION" => "2.01",
   "test" => {
     "TESTS" => "t/*.t t/09-test-aggregate/*.t"
   }
@@ -56,6 +57,7 @@ my %FallbackPrereqs = (
   "Test::More" => "0.92",
   "Test::NoWarnings" => 0,
   "Test::Output" => 0,
+  "Test::Pod" => 0,
   "Test::Warn" => 0,
   "namespace::clean" => 0
 );

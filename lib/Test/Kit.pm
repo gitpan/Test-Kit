@@ -1,5 +1,5 @@
 package Test::Kit;
-$Test::Kit::VERSION = '2.00';
+$Test::Kit::VERSION = '2.01';
 use strict;
 use warnings;
 
@@ -144,6 +144,7 @@ sub _check_collisions {
 
     my $target = $class->_get_package_to_import_into();
 
+    $collision_check_cache{$target} //= {};
     for my $function (@$functions_to_install) {
         if (exists $collision_check_cache{$target}{$function} && $collision_check_cache{$target}{$function} ne $package) {
             die sprintf("Subroutine %s() already supplied to %s by %s",

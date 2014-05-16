@@ -3,29 +3,31 @@ abstract: 'Build custom test packages with only the features you want'
 author:
   - 'Alex Balhatchet <kaoru@slackwise.net>'
 build_requires:
-  Test::Aggregate: 0
-  Test::Aggregate::Nested: 0
-  Test::Exception: 0
-  Test::More: 0.92
-  Test::NoWarnings: 0
-  Test::Output: 0
-  Test::Warn: 0
+  Test::Aggregate: '0'
+  Test::Aggregate::Nested: '0'
+  Test::Exception: '0'
+  Test::More: '0.92'
+  Test::NoWarnings: '0'
+  Test::Output: '0'
+  Test::Pod: '0'
+  Test::Warn: '0'
 configure_requires:
-  ExtUtils::MakeMaker: 6.30
+  ExtUtils::MakeMaker: '6.30'
 dynamic_config: 0
-generated_by: 'Dist::Zilla version 5.016, CPAN::Meta::Converter version 2.140640'
+generated_by: 'Dist::Zilla version 5.016, CPAN::Meta::Converter version 2.141170'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
+  version: '1.4'
 name: Test-Kit
 requires:
-  Exporter: 0
-  Import::Into: 0
-  Module::Runtime: 0
-  Storable: 0
-  Sub::Delete: 0
-  namespace::clean: 0
+  Exporter: '0'
+  Import::Into: '0'
+  Module::Runtime: '0'
+  Storable: '0'
+  Sub::Delete: '0'
+  namespace::clean: '0'
+  perl: '5.010'
 resources:
   repository: git://github.com/kaoru/Test-Kit2.git
-version: 2.00
+version: '2.01'
