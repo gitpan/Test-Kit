@@ -4,7 +4,7 @@
       "Alex Balhatchet <kaoru@slackwise.net>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 5.016, CPAN::Meta::Converter version 2.141170",
+   "generated_by" : "Dist::Zilla version 5.019, CPAN::Meta::Converter version 2.140640",
    "license" : [
       "perl_5"
    ],
@@ -57,6 +57,6 @@
          "web" : "http://github.com/kaoru/Test-Kit2"
       }
    },
-   "version" : "2.01"
+   "version" : "2.02"
 }
 
