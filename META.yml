@@ -11,10 +11,12 @@ build_requires:
   Test::Output: '0'
   Test::Pod: '0'
   Test::Warn: '0'
+  perl: '5.010'
 configure_requires:
-  ExtUtils::MakeMaker: '6.30'
+  ExtUtils::MakeMaker: '0'
+  perl: '5.010'
 dynamic_config: 0
-generated_by: 'Dist::Zilla version 5.016, CPAN::Meta::Converter version 2.141170'
+generated_by: 'Dist::Zilla version 5.020, CPAN::Meta::Converter version 2.142690'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -30,4 +32,4 @@ requires:
   perl: '5.010'
 resources:
   repository: git://github.com/kaoru/Test-Kit2.git
-version: '2.10'
+version: '2.11'
