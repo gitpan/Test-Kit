@@ -3,33 +3,34 @@ abstract: 'Build custom test packages with only the features you want'
 author:
   - 'Alex Balhatchet <kaoru@slackwise.net>'
 build_requires:
-  Test::Aggregate: '0'
-  Test::Aggregate::Nested: '0'
-  Test::Exception: '0'
-  Test::More: '0.92'
-  Test::NoWarnings: '0'
-  Test::Output: '0'
-  Test::Pod: '0'
-  Test::Warn: '0'
-  perl: '5.010'
+  Test::Aggregate: 0
+  Test::Aggregate::Nested: 0
+  Test::Exception: 0
+  Test::More: 0.92
+  Test::NoWarnings: 0
+  Test::Output: 0
+  Test::Pod: 0
+  Test::Warn: 0
+  perl: 5.010
 configure_requires:
-  ExtUtils::MakeMaker: '0'
-  perl: '5.010'
+  ExtUtils::MakeMaker: 0
+  perl: 5.010
 dynamic_config: 0
-generated_by: 'Dist::Zilla version 5.020, CPAN::Meta::Converter version 2.142690'
+generated_by: 'Dist::Zilla version 5.029, CPAN::Meta::Converter version 2.143240'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: '1.4'
+  version: 1.4
 name: Test-Kit
 requires:
-  Exporter: '0'
-  Import::Into: '0'
-  Module::Runtime: '0'
-  Scalar::Util: '0'
-  Sub::Delete: '0'
-  Test::Builder: '0'
-  perl: '5.010'
+  Exporter: 0
+  Hook::LexWrap: 0
+  Import::Into: 0
+  Module::Runtime: 0
+  Scalar::Util: 0
+  Sub::Delete: 0
+  Test::Builder: 0
+  perl: 5.010
 resources:
   repository: git://github.com/kaoru/Test-Kit2.git
-version: '2.12'
+version: 2.13

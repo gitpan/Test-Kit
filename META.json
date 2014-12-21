@@ -4,7 +4,7 @@
       "Alex Balhatchet <kaoru@slackwise.net>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 5.020, CPAN::Meta::Converter version 2.142690",
+   "generated_by" : "Dist::Zilla version 5.029, CPAN::Meta::Converter version 2.143240",
    "license" : [
       "perl_5"
    ],
@@ -29,6 +29,7 @@
       "runtime" : {
          "requires" : {
             "Exporter" : "0",
+            "Hook::LexWrap" : "0",
             "Import::Into" : "0",
             "Module::Runtime" : "0",
             "Scalar::Util" : "0",
@@ -59,6 +60,6 @@
          "web" : "http://github.com/kaoru/Test-Kit2"
       }
    },
-   "version" : "2.12"
+   "version" : "2.13"
 }
 
